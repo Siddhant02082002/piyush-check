@@ -13,7 +13,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
 
       - name: Update config.json with the new URL
         run: |
@@ -27,16 +27,16 @@ jobs:
           npm run start
 
       - name: Upload Postman Collection
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: postman-collection
           path: postman_collection.json
-          
+
       - name: Download Postman Collection Artifact
-        uses: actions/download-artifact@v2
+        uses: actions/download-artifact@v3
         with:
-            name: postman-collection
-            path: ./
+          name: postman-collection
+          path: ./
 
       - name: Check if Postman Collection file exists
         run: ls -l postman_collection.json
@@ -44,7 +44,6 @@ jobs:
       - name: Convert Postman to OpenAPI
         run: |
           npm install postman-to-openapi
-
       - name: Convert Postman to OpenAPI
         run: |
           node p2o ./postman_collection.json -f ./openapi.yaml -o ./options.json
@@ -52,7 +51,7 @@ jobs:
       - name: Convert OpenAPI YAML to JSON
         run: |
           python -c "import yaml, json; json.dump(yaml.safe_load(open('openapi.yaml')), open('openapi.json', 'w'), indent=2)"
-          
+
       - name: Upload OpenAPI JSON File
         uses: actions/upload-artifact@v3
         with:
@@ -60,7 +59,7 @@ jobs:
           path: openapi.json
 
       - name: Download OpenAPI JSON Artifact
-        uses: actions/download-artifact@v2
+        uses: actions/download-artifact@v3
         with:
           name: openapi-json
           path: ./
@@ -78,7 +77,7 @@ jobs:
               with open('endpoints.txt', 'w') as outfile:
                   for endpoint in endpoints:
                       outfile.write(endpoint + '\n')
-                    "
+          "
 
       - name: Run ZAP Full Scan on Endpoints
         run: |
@@ -90,8 +89,107 @@ jobs:
           done < endpoints.txt
 
       - name: Upload ZAP Reports
-        if: always()  # Ensure this step runs regardless of previous failures
-        uses: actions/upload-artifact@v2
+        if: always()
+        uses: actions/upload-artifact@v3
         with:
           name: zap-reports
           path: ${{ github.workspace }}/report
+
+
+# name: Trigger Scan
+
+# on:
+#   workflow_dispatch:
+#     inputs:
+#       repo_url:
+#         description: 'Repository URL to update in config.json'
+#         required: true
+
+# jobs:
+#   update-and-run:
+#     runs-on: ubuntu-latest
+
+#     steps:
+#       - name: Checkout repository
+#         uses: actions/checkout@v2
+
+#       - name: Update config.json with the new URL
+#         run: |
+#           CONFIG_FILE="config.json"
+#           jq --arg url "${{ github.event.inputs.repo_url }}" '.repoPath = $url' "$CONFIG_FILE" > tmp.$$.json && mv tmp.$$.json "$CONFIG_FILE"
+#           echo "Updated repoPath in config.json to ${{ github.event.inputs.repo_url }}"
+
+#       - name: Run JavaScript project
+#         run: |
+#           npm install
+#           npm run start
+
+#       - name: Upload Postman Collection
+#         uses: actions/upload-artifact@v2
+#         with:
+#           name: postman-collection
+#           path: postman_collection.json
+          
+#       - name: Download Postman Collection Artifact
+#         uses: actions/download-artifact@v2
+#         with:
+#             name: postman-collection
+#             path: ./
+
+#       - name: Check if Postman Collection file exists
+#         run: ls -l postman_collection.json
+
+#       - name: Convert Postman to OpenAPI
+#         run: |
+#           npm install postman-to-openapi
+
+#       - name: Convert Postman to OpenAPI
+#         run: |
+#           node p2o ./postman_collection.json -f ./openapi.yaml -o ./options.json
+
+#       - name: Convert OpenAPI YAML to JSON
+#         run: |
+#           python -c "import yaml, json; json.dump(yaml.safe_load(open('openapi.yaml')), open('openapi.json', 'w'), indent=2)"
+          
+#       - name: Upload OpenAPI JSON File
+#         uses: actions/upload-artifact@v3
+#         with:
+#           name: openapi-json
+#           path: openapi.json
+
+#       - name: Download OpenAPI JSON Artifact
+#         uses: actions/download-artifact@v2
+#         with:
+#           name: openapi-json
+#           path: ./
+
+#       - name: Extract Endpoints from OpenAPI JSON
+#         id: extract_endpoints
+#         run: |
+#           python -c "
+#           import json
+#           with open('openapi.json') as f:
+#               data = json.load(f)
+#               paths = data.get('paths', {})
+#               endpoints = [path for path in paths.keys()]
+#               print('Extracted endpoints:', endpoints)
+#               with open('endpoints.txt', 'w') as outfile:
+#                   for endpoint in endpoints:
+#                       outfile.write(endpoint + '\n')
+#                     "
+
+#       - name: Run ZAP Full Scan on Endpoints
+#         run: |
+#           mkdir -p ${{ github.workspace }}/report
+#           chmod 777 ${{ github.workspace }}/report
+#           while IFS= read -r endpoint; do
+#             echo "Scanning endpoint: $endpoint"
+#             docker run -v ${{ github.workspace }}/report:/zap/wrk:rw -t ghcr.io/zaproxy/zaproxy:stable zap-full-scan.py -t "https://dummy-backend-check.onrender.com$endpoint" -r /zap/wrk/$(basename $endpoint).html || true
+#           done < endpoints.txt
+
+#       - name: Upload ZAP Reports
+#         if: always()  # Ensure this step runs regardless of previous failures
+#         uses: actions/upload-artifact@v2
+#         with:
+#           name: zap-reports
+#           path: ${{ github.workspace }}/report
